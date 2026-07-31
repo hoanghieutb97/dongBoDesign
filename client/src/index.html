@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Sync Client</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"],
+    input[type="url"] {
+      flex: 1;
+      padding: 12px 15px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    button {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    button:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .progress-container {
+      display: none;
+      margin-top: 30px;
+    }
+
+    .progress-container.active {
+      display: block;
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #eee;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .status-message {
+      padding: 15px;
+      background: #f0f4ff;
+      border-left: 4px solid #667eea;
+      border-radius: 4px;
+      color: #333;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .status-message.success {
+      background: #f0fdf4;
+      border-left-color: #22c55e;
+      color: #166534;
+    }
+
+    .status-message.error {
+      background: #fef2f2;
+      border-left-color: #ef4444;
+      color: #991b1b;
+    }
+
+    .folder-display {
+      padding: 10px 15px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      word-break: break-all;
+      color: #666;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+      margin-top: 8px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+
+    .stat-item {
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 6px;
+      border-left: 3px solid #667eea;
+    }
+
+    .stat-label {
+      color: #999;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      color: #333;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📁 File Sync</h1>
+    <p class="subtitle">Đồng bộ thư mục giữa 2 máy tính qua internet</p>
+
+    <div class="form-group">
+      <label for="folder-path">Chọn thư mục cần đồng bộ:</label>
+      <div class="input-group">
+        <input
+          type="text"
+          id="folder-path"
+          placeholder="Click 'Chọn thư mục' hoặc paste đường dẫn"
+          readonly
+        >
+        <button id="browse-btn">Chọn</button>
+      </div>
+      <div class="folder-display" id="folder-display">Chưa chọn thư mục</div>
+    </div>
+
+    <div class="form-group">
+      <label for="server-url">Server URL:</label>
+      <input
+        type="url"
+        id="server-url"
+        placeholder="http://192.168.x.x:3000"
+        value="http://localhost:3000"
+      >
+    </div>
+
+    <button id="upload-btn">🚀 Bắt đầu đồng bộ</button>
+
+    <div class="progress-container" id="progress">
+      <div class="progress-info">
+        <span id="progress-status">Chuẩn bị...</span>
+        <span id="progress-percent">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-label">Tốc độ</div>
+          <div class="stat-value" id="speed">0 MB/s</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Thời gian còn lại</div>
+          <div class="stat-value" id="time-left">--:--</div>
+        </div>
+      </div>
+      <div class="status-message" id="status-message"></div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

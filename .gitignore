@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Electron
+dist/
+out/
+release/
+
+# Temp files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+desktop.ini
+.Spotlight-V100
+.Trashes
+
+# Build
+build/
+*.exe
+*.dmg
+*.zip
+
+# Uploads
+uploads/
+Desktop/in/

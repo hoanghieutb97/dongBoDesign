@@ -14,7 +14,7 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
-const PORT = process.env.PORT || 5555;
+const PORT = process.env.PORT || 8888;
 const DESKTOP_IN = path.join(os.homedir(), 'Desktop', 'in');
 
 app.use(cors());
@@ -51,19 +51,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // File name format: "folderName||relativePath||actualFileName"
+    // File name format:
+    // - Root file: "folderName||fileName"
+    // - Subfolder file: "folderName||relativePath||fileName"
     const originalName = req.file.originalname;
     console.log('📥 Received file:', originalName);
 
     const parts = originalName.split('||');
-    console.log('📋 Parts:', parts);
+    console.log('📋 Parts:', parts, 'Length:', parts.length);
 
-    if (parts.length !== 3) {
-      console.log('❌ Invalid format! Expected 3 parts, got:', parts.length);
-      return res.status(400).json({ error: `Invalid file name format. Expected 3 parts (folderName||relativePath||fileName), got ${parts.length}` });
+    let folderName, relativePath, actualFileName;
+
+    if (parts.length === 2) {
+      // File in root folder
+      [folderName, actualFileName] = parts;
+      relativePath = '';
+    } else if (parts.length === 3) {
+      // File in subfolder
+      [folderName, relativePath, actualFileName] = parts;
+    } else {
+      console.log('❌ Invalid format! Expected 2 or 3 parts, got:', parts.length);
+      return res.status(400).json({ error: `Invalid file name format` });
     }
-
-    const [folderName, relativePath, actualFileName] = parts;
 
     if (!folderName || !actualFileName) {
       return res.status(400).json({ error: 'Invalid file name format' });

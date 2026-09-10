@@ -85,7 +85,12 @@ function getAllFiles(dir) {
 async function uploadFile(filePath, serverUrl, folderName, relativePath) {
   try {
     const fileName = path.basename(filePath);
-    const uploadFileName = `${folderName}||${relativePath}||${fileName}`;
+    // Always use 3 parts format
+    const uploadFileName = relativePath
+      ? `${folderName}||${relativePath}||${fileName}`
+      : `${folderName}||${fileName}`;
+
+    console.log('📤 Uploading:', uploadFileName);
 
     const form = new FormData();
     form.append('file', fs.createReadStream(filePath), uploadFileName);

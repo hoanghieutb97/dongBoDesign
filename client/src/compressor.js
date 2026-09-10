@@ -23,7 +23,11 @@ async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
 
     for (let i = 0; i < files.length; i++) {
       const filePath = files[i];
-      const relativePath = path.relative(folderPath, path.dirname(filePath));
+      let relativePath = path.relative(folderPath, path.dirname(filePath));
+      // If file is in root, relativePath will be '.', convert to empty string
+      if (relativePath === '.') {
+        relativePath = '';
+      }
       const fileName = path.basename(filePath);
       const fileSize = fs.statSync(filePath).size;
 

@@ -53,14 +53,20 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     // File name format: "folderName||relativePath||actualFileName"
     const originalName = req.file.originalname;
-    const [folderName, relativePath, actualFileName] = originalName.split('||');
+    const parts = originalName.split('||');
 
-    if (!folderName) {
+    if (parts.length !== 3) {
+      return res.status(400).json({ error: 'Invalid file name format' });
+    }
+
+    const [folderName, relativePath, actualFileName] = parts;
+
+    if (!folderName || !actualFileName) {
       return res.status(400).json({ error: 'Invalid file name format' });
     }
 
     const folderPath = path.join(DESKTOP_IN, folderName);
-    const fileDir = relativePath
+    const fileDir = relativePath && relativePath.trim()
       ? path.join(folderPath, relativePath)
       : folderPath;
 

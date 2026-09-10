@@ -1,14 +1,13 @@
-import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+const CHUNK_SIZE = 5 * 1024 * 1024;
 
-export async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
+async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
   try {
     const folderName = path.basename(folderPath);
 
-    // Get all files recursively
     const files = getAllFiles(folderPath);
 
     if (files.length === 0) {
@@ -18,12 +17,10 @@ export async function compressAndUploadHandler(mainWindow, folderPath, serverUrl
     let totalUploaded = 0;
     let totalSize = 0;
 
-    // Calculate total size
     files.forEach(file => {
       totalSize += fs.statSync(file).size;
     });
 
-    // Upload each file
     for (let i = 0; i < files.length; i++) {
       const filePath = files[i];
       const relativePath = path.relative(folderPath, path.dirname(filePath));
@@ -85,7 +82,6 @@ async function uploadFile(filePath, serverUrl, folderName, relativePath) {
     const fileName = path.basename(filePath);
     const fileBuffer = fs.readFileSync(filePath);
 
-    // Format: "folderName||relativePath||fileName"
     const uploadFileName = `${folderName}||${relativePath}||${fileName}`;
 
     const formData = new FormData();
@@ -99,3 +95,5 @@ async function uploadFile(filePath, serverUrl, folderName, relativePath) {
     throw new Error(`Failed to upload ${path.basename(filePath)}: ${error.message}`);
   }
 }
+
+module.exports = { compressAndUploadHandler };

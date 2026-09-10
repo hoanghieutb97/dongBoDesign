@@ -1,9 +1,7 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { compressAndUploadHandler } from './src/compressor.js';
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
+const path = require('path');
+const { compressAndUploadHandler } = require('./src/compressor.js');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow;
 
 function createWindow() {
@@ -38,7 +36,6 @@ function createWindow() {
   Menu.setApplicationMenu(menu);
 }
 
-// IPC handlers
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory']

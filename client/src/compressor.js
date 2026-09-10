@@ -1,56 +1,60 @@
-import archiver from 'archiver';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks for faster upload
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 
 export async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
   try {
-    // Create temp directory for zip file
-    const tempDir = path.join(os.tmpdir(), `sync-${Date.now()}`);
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+    const folderName = path.basename(folderPath);
+
+    // Get all files recursively
+    const files = getAllFiles(folderPath);
+
+    if (files.length === 0) {
+      throw new Error('Thư mục trống, không có file để đồng bộ');
     }
 
-    const folderName = path.basename(folderPath);
-    const zipPath = path.join(tempDir, `${folderName}.zip`);
+    let totalUploaded = 0;
+    let totalSize = 0;
 
-    // Step 1: Compress with progress
-    await compressFolder(folderPath, zipPath, (progress) => {
-      mainWindow.webContents.send('progress', {
-        type: 'compress',
-        percent: progress,
-        status: 'Đang nén file...'
-      });
+    // Calculate total size
+    files.forEach(file => {
+      totalSize += fs.statSync(file).size;
     });
 
-    // Step 2: Upload with chunking
-    const fileSize = fs.statSync(zipPath).size;
-    await uploadFileChunked(zipPath, serverUrl, fileSize, (progress, bytes) => {
+    // Upload each file
+    for (let i = 0; i < files.length; i++) {
+      const filePath = files[i];
+      const relativePath = path.relative(folderPath, path.dirname(filePath));
+      const fileName = path.basename(filePath);
+      const fileSize = fs.statSync(filePath).size;
+
       mainWindow.webContents.send('progress', {
         type: 'upload',
-        percent: progress,
-        bytes: bytes,
-        status: 'Đang upload...'
+        percent: (totalUploaded / totalSize) * 100,
+        currentFile: fileName,
+        fileIndex: i + 1,
+        totalFiles: files.length,
+        bytes: totalUploaded
       });
-    });
 
-    // Cleanup
-    fs.unlinkSync(zipPath);
-    fs.rmdirSync(tempDir);
+      await uploadFile(filePath, serverUrl, folderName, relativePath);
+      totalUploaded += fileSize;
+    }
 
     mainWindow.webContents.send('progress', {
       type: 'complete',
       percent: 100,
-      status: 'Hoàn thành!'
+      currentFile: 'Hoàn thành!',
+      totalFiles: files.length
     });
 
     return {
       success: true,
       folder: folderName,
-      size: fileSize
+      fileCount: files.length,
+      totalSize
     };
 
   } catch (error) {
@@ -58,122 +62,40 @@ export async function compressAndUploadHandler(mainWindow, folderPath, serverUrl
   }
 }
 
-function compressFolder(folderPath, zipPath, onProgress) {
-  return new Promise((resolve, reject) => {
-    try {
-      const output = fs.createWriteStream(zipPath);
-      const archive = archiver('zip', {
-        zlib: { level: 1 } // Low compression for speed
-      });
+function getAllFiles(dir) {
+  let files = [];
+  const items = fs.readdirSync(dir);
 
-      let totalSize = 0;
-      let processedSize = 0;
+  items.forEach(item => {
+    const fullPath = path.join(dir, item);
+    const stat = fs.statSync(fullPath);
 
-      // Calculate total size first
-      const calculateSize = (dir) => {
-        const files = fs.readdirSync(dir);
-        files.forEach(file => {
-          const filePath = path.join(dir, file);
-          const stat = fs.statSync(filePath);
-          if (stat.isDirectory()) {
-            calculateSize(filePath);
-          } else {
-            totalSize += stat.size;
-          }
-        });
-      };
-
-      calculateSize(folderPath);
-
-      output.on('close', () => resolve());
-      output.on('error', reject);
-      archive.on('error', reject);
-
-      // Track progress by data events
-      archive.on('data', (data) => {
-        processedSize += data.length;
-        const progress = (processedSize / (totalSize || 1)) * 100;
-        onProgress(Math.min(progress, 99)); // Cap at 99% until complete
-      });
-
-      archive.pipe(output);
-      archive.directory(folderPath, false);
-      archive.finalize();
-
-    } catch (error) {
-      reject(error);
+    if (stat.isDirectory()) {
+      files = files.concat(getAllFiles(fullPath));
+    } else {
+      files.push(fullPath);
     }
   });
+
+  return files;
 }
 
-async function uploadFileChunked(filePath, serverUrl, fileSize, onProgress) {
+async function uploadFile(filePath, serverUrl, folderName, relativePath) {
   try {
     const fileName = path.basename(filePath);
-    const fileStream = fs.createReadStream(filePath, { highWaterMark: CHUNK_SIZE });
+    const fileBuffer = fs.readFileSync(filePath);
 
-    let uploadedBytes = 0;
-    const chunks = [];
+    // Format: "folderName||relativePath||fileName"
+    const uploadFileName = `${folderName}||${relativePath}||${fileName}`;
 
-    return new Promise((resolve, reject) => {
-      fileStream.on('data', async (chunk) => {
-        uploadedBytes += chunk.length;
-        chunks.push(chunk);
+    const formData = new FormData();
+    formData.append('file', new Blob([fileBuffer]), uploadFileName);
 
-        const progress = (uploadedBytes / fileSize) * 100;
-        onProgress(progress, uploadedBytes);
-
-        // Upload when we have enough chunks
-        if (chunks.length >= 1 || uploadedBytes === fileSize) {
-          fileStream.pause();
-
-          try {
-            const formData = new FormData();
-            formData.append('file', new Blob(chunks), fileName);
-
-            await axios.post(`${serverUrl}/api/upload`, formData, {
-              headers: {
-                'Content-Type': 'multipart/form-data'
-              },
-              timeout: 60000
-            });
-
-            chunks.length = 0;
-            fileStream.resume();
-          } catch (error) {
-            fileStream.destroy();
-            reject(new Error(`Chunk upload failed: ${error.message}`));
-          }
-        }
-      });
-
-      fileStream.on('end', async () => {
-        if (chunks.length > 0) {
-          try {
-            const formData = new FormData();
-            formData.append('file', new Blob(chunks), fileName);
-
-            await axios.post(`${serverUrl}/api/upload`, formData, {
-              headers: {
-                'Content-Type': 'multipart/form-data'
-              },
-              timeout: 60000
-            });
-
-            resolve();
-          } catch (error) {
-            reject(new Error(`Final chunk upload failed: ${error.message}`));
-          }
-        } else {
-          resolve();
-        }
-      });
-
-      fileStream.on('error', reject);
+    await axios.post(`${serverUrl}/api/upload`, formData, {
+      timeout: 60000
     });
 
   } catch (error) {
-    throw new Error(`Upload error: ${error.message}`);
+    throw new Error(`Failed to upload ${path.basename(filePath)}: ${error.message}`);
   }
 }
-
-export { compressFolder };

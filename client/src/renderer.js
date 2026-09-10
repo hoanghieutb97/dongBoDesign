@@ -67,19 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.api.onProgress((data) => {
-    if (data.type === 'compress') {
-      progressStatus.textContent = '🗜️ Đang nén file...';
-      updateProgress(data.percent);
-    } else if (data.type === 'upload') {
-      progressStatus.textContent = '📤 Đang upload...';
+    if (data.type === 'upload') {
+      const fileInfo = `(${data.fileIndex}/${data.totalFiles})`;
+      progressStatus.textContent = `📤 ${data.currentFile} ${fileInfo}`;
       updateProgress(data.percent);
       uploadedBytes = data.bytes || 0;
       updateSpeed();
-    } else if (data.type === 'extract') {
-      progressStatus.textContent = '📦 Đang giải nén...';
-      updateProgress(data.percent);
     } else if (data.type === 'complete') {
-      progressStatus.textContent = '✅ Hoàn thành!';
+      progressStatus.textContent = `✅ Hoàn thành! Đã đồng bộ ${data.totalFiles} file`;
       updateProgress(100);
     }
   });

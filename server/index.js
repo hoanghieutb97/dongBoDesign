@@ -51,35 +51,40 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const fileName = req.file.originalname;
-    const folderName = path.parse(fileName).name;
-    const extractPath = path.join(DESKTOP_IN, folderName);
+    // File name format: "folderName||relativePath||actualFileName"
+    const originalName = req.file.originalname;
+    const [folderName, relativePath, actualFileName] = originalName.split('||');
 
-    // Create folder if doesn't exist
-    if (!fs.existsSync(extractPath)) {
-      fs.mkdirSync(extractPath, { recursive: true });
+    if (!folderName) {
+      return res.status(400).json({ error: 'Invalid file name format' });
     }
 
-    // Save file temporarily
-    const tempFilePath = path.join(DESKTOP_IN, fileName);
-    await fs.promises.writeFile(tempFilePath, req.file.buffer);
+    const folderPath = path.join(DESKTOP_IN, folderName);
+    const fileDir = relativePath
+      ? path.join(folderPath, relativePath)
+      : folderPath;
 
-    broadcastProgress({ status: 'extracting', file: fileName });
+    // Create directory if doesn't exist
+    if (!fs.existsSync(fileDir)) {
+      fs.mkdirSync(fileDir, { recursive: true });
+    }
 
-    // Extract zip
-    const zip = new AdmZip(tempFilePath);
-    zip.extractAllTo(extractPath, true);
+    // Save file
+    const filePath = path.join(fileDir, actualFileName);
+    await fs.promises.writeFile(filePath, req.file.buffer);
 
-    // Remove temp zip file
-    await fs.promises.unlink(tempFilePath);
-
-    broadcastProgress({ status: 'completed', file: fileName, folder: folderName });
+    broadcastProgress({
+      status: 'file_saved',
+      file: actualFileName,
+      folder: folderName,
+      relativePath: relativePath || ''
+    });
 
     res.json({
       success: true,
-      message: 'File uploaded and extracted',
+      message: 'File saved',
       folder: folderName,
-      path: extractPath
+      file: actualFileName
     });
 
   } catch (error) {

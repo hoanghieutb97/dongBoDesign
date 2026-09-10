@@ -109,17 +109,18 @@ async function uploadFile(filePath, serverUrl, folderName, relativePath, onProgr
 
     console.log(`📤 Uploading: ${fileName} (${fileSize} bytes, ${totalChunks} chunks)`);
 
-    const fileBuffer = fs.readFileSync(filePath);
-
     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
       const start = chunkIndex * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, fileSize);
-      const chunkBuffer = fileBuffer.slice(start, end);
+      const chunkSize = end - start;
 
-      console.log(`   Chunk ${chunkIndex + 1}/${totalChunks} (${end - start} bytes)`);
+      console.log(`   Chunk ${chunkIndex + 1}/${totalChunks} (${chunkSize} bytes)`);
+
+      // Read chunk from file stream (not entire file)
+      const fileStream = fs.createReadStream(filePath, { start, end: end - 1 });
 
       const form = new FormData();
-      form.append('file', chunkBuffer, `${fileName}.chunk${chunkIndex}`);
+      form.append('file', fileStream, `${fileName}.chunk${chunkIndex}`);
       form.append('folderName', folderName);
       form.append('relativePath', relativePath || '');
       form.append('fileName', fileName);

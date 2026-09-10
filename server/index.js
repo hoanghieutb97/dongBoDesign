@@ -39,10 +39,22 @@ function broadcastProgress(data) {
   });
 }
 
-// Configure multer for large files (4GB)
+// Configure multer with disk storage for large files
+const uploadDir = path.join(os.tmpdir(), 'dongbo-upload');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 * 1024 } // 4GB
+  storage: multer.diskStorage({
+    destination: uploadDir,
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`);
+    }
+  }),
+  limits: {
+    fileSize: 10 * 1024 * 1024 * 1024  // 10GB
+  }
 });
 
 // Store chunk metadata
@@ -93,7 +105,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 
     const session = uploadSessions.get(sessionId);
-    session.chunks.set(chunkIndex, req.file.buffer);
+    // Read file from disk and store buffer
+    const chunkBuffer = fs.readFileSync(req.file.path);
+    session.chunks.set(chunkIndex, chunkBuffer);
+    // Delete temp file
+    fs.unlinkSync(req.file.path);
 
     console.log(`   Stored chunk ${chunkIndex + 1}/${totalChunks} (${req.file.buffer.length} bytes)`);
 

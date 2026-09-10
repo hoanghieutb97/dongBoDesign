@@ -108,10 +108,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     // Read file from disk and store buffer
     const chunkBuffer = fs.readFileSync(req.file.path);
     session.chunks.set(chunkIndex, chunkBuffer);
+    const chunkSize = chunkBuffer.length;
     // Delete temp file
     fs.unlinkSync(req.file.path);
 
-    console.log(`   Stored chunk ${chunkIndex + 1}/${totalChunks} (${req.file.buffer.length} bytes)`);
+    console.log(`   Stored chunk ${chunkIndex + 1}/${totalChunks} (${chunkSize} bytes)`);
 
     // Check if all chunks received
     if (session.chunks.size === totalChunks) {

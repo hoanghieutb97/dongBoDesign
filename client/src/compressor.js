@@ -92,15 +92,14 @@ function getAllFiles(dir) {
 async function uploadFile(filePath, serverUrl, folderName, relativePath) {
   try {
     const fileName = path.basename(filePath);
-    // Always use 3 parts format
-    const uploadFileName = relativePath
-      ? `${folderName}||${relativePath}||${fileName}`
-      : `${folderName}||${fileName}`;
 
-    console.log('📤 Uploading:', uploadFileName);
+    console.log('📤 Uploading:', fileName);
 
     const form = new FormData();
-    form.append('file', fs.createReadStream(filePath), uploadFileName);
+    form.append('file', fs.createReadStream(filePath), 'file');
+    form.append('folderName', folderName);
+    form.append('relativePath', relativePath || '');
+    form.append('fileName', fileName);
 
     await axios.post(`${serverUrl}/api/upload`, form, {
       headers: form.getHeaders(),

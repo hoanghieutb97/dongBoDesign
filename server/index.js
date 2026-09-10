@@ -51,28 +51,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // File name format:
-    // - Root file: "folderName||fileName"
-    // - Subfolder file: "folderName||relativePath||fileName"
-    const originalName = req.file.originalname;
-    console.log('📥 Received file:', originalName);
+    // Get metadata from form fields
+    const folderName = req.body.folderName;
+    const relativePath = req.body.relativePath || '';
+    const actualFileName = req.body.fileName;
 
-    const parts = originalName.split('||');
-    console.log('📋 Parts:', parts, 'Length:', parts.length);
-
-    let folderName, relativePath, actualFileName;
-
-    if (parts.length === 2) {
-      // File in root folder
-      [folderName, actualFileName] = parts;
-      relativePath = '';
-    } else if (parts.length === 3) {
-      // File in subfolder
-      [folderName, relativePath, actualFileName] = parts;
-    } else {
-      console.log('❌ Invalid format! Expected 2 or 3 parts, got:', parts.length);
-      return res.status(400).json({ error: `Invalid file name format` });
-    }
+    console.log('📥 Received file:', actualFileName);
+    console.log('   folderName:', folderName);
+    console.log('   relativePath:', relativePath);
 
     if (!folderName || !actualFileName) {
       return res.status(400).json({ error: 'Invalid file name format' });

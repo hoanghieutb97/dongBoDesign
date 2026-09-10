@@ -69,7 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.api.onProgress((data) => {
     if (data.type === 'upload') {
       const fileInfo = `(${data.fileIndex}/${data.totalFiles})`;
-      progressStatus.textContent = `📤 ${data.currentFile} ${fileInfo}`;
+      const filePercent = data.fileProgress ? ` ${data.fileProgress}%` : '';
+      progressStatus.textContent = `📤 ${data.currentFile}${filePercent} ${fileInfo}`;
       updateProgress(data.percent);
       uploadedBytes = data.bytes || 0;
       updateSpeed();

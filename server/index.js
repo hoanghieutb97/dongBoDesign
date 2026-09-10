@@ -45,20 +45,23 @@ const upload = multer({
   limits: { fileSize: 4 * 1024 * 1024 * 1024 } // 4GB
 });
 
+// Store chunk metadata
+const uploadSessions = new Map();
+
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Get metadata from form fields
     const folderName = req.body.folderName;
     const relativePath = req.body.relativePath || '';
     const actualFileName = req.body.fileName;
+    const chunkIndex = parseInt(req.body.chunkIndex) || 0;
+    const totalChunks = parseInt(req.body.totalChunks) || 1;
+    const fileSize = parseInt(req.body.fileSize) || 0;
 
-    console.log('📥 Received file:', actualFileName);
-    console.log('   folderName:', folderName);
-    console.log('   relativePath:', relativePath);
+    console.log(`📥 Chunk ${chunkIndex + 1}/${totalChunks}: ${actualFileName}`);
 
     if (!folderName || !actualFileName) {
       return res.status(400).json({ error: 'Invalid file name format' });
@@ -74,23 +77,69 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       fs.mkdirSync(fileDir, { recursive: true });
     }
 
-    // Save file
-    const filePath = path.join(fileDir, actualFileName);
-    await fs.promises.writeFile(filePath, req.file.buffer);
+    // Handle chunks
+    const sessionId = `${folderName}/${relativePath}/${actualFileName}`;
+    if (!uploadSessions.has(sessionId)) {
+      uploadSessions.set(sessionId, {
+        chunks: new Map(),
+        totalChunks,
+        fileSize,
+        folderPath,
+        fileDir,
+        folderName,
+        relativePath,
+        actualFileName
+      });
+    }
 
-    broadcastProgress({
-      status: 'file_saved',
-      file: actualFileName,
-      folder: folderName,
-      relativePath: relativePath || ''
-    });
+    const session = uploadSessions.get(sessionId);
+    session.chunks.set(chunkIndex, req.file.buffer);
 
-    res.json({
-      success: true,
-      message: 'File saved',
-      folder: folderName,
-      file: actualFileName
-    });
+    console.log(`   Stored chunk ${chunkIndex + 1}/${totalChunks} (${req.file.buffer.length} bytes)`);
+
+    // Check if all chunks received
+    if (session.chunks.size === totalChunks) {
+      console.log(`🔄 Assembling ${actualFileName}...`);
+
+      // Combine all chunks
+      const buffers = [];
+      for (let i = 0; i < totalChunks; i++) {
+        buffers.push(session.chunks.get(i));
+      }
+      const completeBuffer = Buffer.concat(buffers);
+
+      // Save complete file
+      const filePath = path.join(fileDir, actualFileName);
+      await fs.promises.writeFile(filePath, completeBuffer);
+
+      console.log(`✅ File saved: ${filePath}`);
+
+      uploadSessions.delete(sessionId);
+
+      broadcastProgress({
+        status: 'file_saved',
+        file: actualFileName,
+        folder: folderName,
+        relativePath: relativePath || ''
+      });
+
+      res.json({
+        success: true,
+        message: 'File saved',
+        folder: folderName,
+        file: actualFileName,
+        chunkIndex,
+        totalChunks
+      });
+    } else {
+      console.log(`   Waiting for more chunks... (${session.chunks.size}/${totalChunks})`);
+      res.json({
+        success: true,
+        message: 'Chunk received',
+        chunkIndex,
+        totalChunks
+      });
+    }
 
   } catch (error) {
     console.error('Upload error:', error);

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 
-const CHUNK_SIZE = 5 * 1024 * 1024;
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
 
 async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
   try {
@@ -47,7 +47,19 @@ async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
         bytes: totalUploaded
       });
 
-      await uploadFile(filePath, serverUrl, folderName, relativePath);
+      await uploadFile(filePath, serverUrl, folderName, relativePath, (fileProgress) => {
+        // Update progress for current file chunks
+        const totalUploadedWithFileProgress = totalUploaded + (fileSize * fileProgress);
+        mainWindow.webContents.send('progress', {
+          type: 'upload',
+          percent: (totalUploadedWithFileProgress / totalSize) * 100,
+          currentFile: fileName,
+          fileIndex: i + 1,
+          totalFiles: files.length,
+          bytes: totalUploadedWithFileProgress,
+          fileProgress: Math.round(fileProgress * 100)
+        });
+      });
       totalUploaded += fileSize;
     }
 
@@ -89,22 +101,45 @@ function getAllFiles(dir) {
   return files;
 }
 
-async function uploadFile(filePath, serverUrl, folderName, relativePath) {
+async function uploadFile(filePath, serverUrl, folderName, relativePath, onProgress) {
   try {
     const fileName = path.basename(filePath);
+    const fileSize = fs.statSync(filePath).size;
+    const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
 
-    console.log('📤 Uploading:', fileName);
+    console.log(`📤 Uploading: ${fileName} (${fileSize} bytes, ${totalChunks} chunks)`);
 
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath), 'file');
-    form.append('folderName', folderName);
-    form.append('relativePath', relativePath || '');
-    form.append('fileName', fileName);
+    const fileBuffer = fs.readFileSync(filePath);
 
-    await axios.post(`${serverUrl}/api/upload`, form, {
-      headers: form.getHeaders(),
-      timeout: 60000
-    });
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      const start = chunkIndex * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, fileSize);
+      const chunkBuffer = fileBuffer.slice(start, end);
+
+      console.log(`   Chunk ${chunkIndex + 1}/${totalChunks} (${end - start} bytes)`);
+
+      const form = new FormData();
+      form.append('file', chunkBuffer, `${fileName}.chunk${chunkIndex}`);
+      form.append('folderName', folderName);
+      form.append('relativePath', relativePath || '');
+      form.append('fileName', fileName);
+      form.append('chunkIndex', chunkIndex);
+      form.append('totalChunks', totalChunks);
+      form.append('fileSize', fileSize);
+
+      await axios.post(`${serverUrl}/api/upload`, form, {
+        headers: form.getHeaders(),
+        timeout: 120000  // 2 minutes per chunk
+      });
+
+      // Report progress for this file
+      const fileProgress = (chunkIndex + 1) / totalChunks;
+      if (onProgress) {
+        onProgress(fileProgress);
+      }
+    }
+
+    console.log(`✅ ${fileName} uploaded (${totalChunks} chunks)`);
 
   } catch (error) {
     throw new Error(`Failed to upload ${path.basename(filePath)}: ${error.message}`);

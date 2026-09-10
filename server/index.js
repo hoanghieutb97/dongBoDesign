@@ -14,7 +14,7 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5555;
 const DESKTOP_IN = path.join(os.homedir(), 'Desktop', 'in');
 
 app.use(cors());

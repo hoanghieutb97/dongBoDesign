@@ -73,8 +73,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const totalChunks = parseInt(req.body.totalChunks) || 1;
     const fileSize = parseInt(req.body.fileSize) || 0;
 
-    console.log(`📥 Chunk ${chunkIndex + 1}/${totalChunks}: ${actualFileName}`);
-
     if (!folderName || !actualFileName) {
       return res.status(400).json({ error: 'Invalid file name format' });
     }
@@ -112,11 +110,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     // Delete temp file
     fs.unlinkSync(req.file.path);
 
-    console.log(`   Stored chunk ${chunkIndex + 1}/${totalChunks} (${chunkSize} bytes)`);
 
     // Check if all chunks received
     if (session.chunks.size === totalChunks) {
-      console.log(`🔄 Assembling ${actualFileName}...`);
 
       // Combine all chunks
       const buffers = [];
@@ -129,7 +125,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       const filePath = path.join(fileDir, actualFileName);
       await fs.promises.writeFile(filePath, completeBuffer);
 
-      console.log(`✅ File saved: ${filePath}`);
 
       uploadSessions.delete(sessionId);
 
@@ -149,7 +144,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         totalChunks
       });
     } else {
-      console.log(`   Waiting for more chunks... (${session.chunks.size}/${totalChunks})`);
       res.json({
         success: true,
         message: 'Chunk received',

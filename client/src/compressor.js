@@ -34,9 +34,6 @@ async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
       const fileName = path.basename(filePath);
       const fileSize = fs.statSync(filePath).size;
 
-      console.log(`📤 [${i + 1}/${files.length}] File: ${filePath}`);
-      console.log(`   relativePath: "${relativePath}"`);
-      console.log(`   fileName: "${fileName}"`);
 
       mainWindow.webContents.send('progress', {
         type: 'upload',
@@ -78,26 +75,43 @@ async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
     };
 
   } catch (error) {
-    throw new Error(`Upload failed: ${error.message}`);
+    const errorMsg = error.message || 'Unknown error';
+
+    // Determine error type
+    let errorType = 'upload_error';
+    if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('ENOTFOUND')) {
+      errorType = 'connection_error';
+    } else if (errorMsg.includes('ENOENT') || errorMsg.includes('EACCES')) {
+      errorType = 'file_error';
+    }
+
+    throw new Error(`Upload failed: ${errorMsg}`);
   }
 }
 
-function getAllFiles(dir) {
+function getAllFiles(dir, rootDir = dir) {
   let files = [];
   const items = fs.readdirSync(dir);
 
+  // Folders to ignore
+  const ignoreFolders = ['file tool', 'Thumbs.db'];
+
   items.forEach(item => {
+    // Skip ignored folders
+    if (ignoreFolders.includes(item)) {
+      return;
+    }
+
     const fullPath = path.join(dir, item);
     const stat = fs.statSync(fullPath);
 
     if (stat.isDirectory()) {
-      files = files.concat(getAllFiles(fullPath));
+      files = files.concat(getAllFiles(fullPath, rootDir));
     } else {
       files.push(fullPath);
     }
   });
 
-  console.log('📁 Scanned files:', files);
   return files;
 }
 
@@ -107,14 +121,10 @@ async function uploadFile(filePath, serverUrl, folderName, relativePath, onProgr
     const fileSize = fs.statSync(filePath).size;
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
 
-    console.log(`📤 Uploading: ${fileName} (${fileSize} bytes, ${totalChunks} chunks)`);
-
     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
       const start = chunkIndex * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, fileSize);
       const chunkSize = end - start;
-
-      console.log(`   Chunk ${chunkIndex + 1}/${totalChunks} (${chunkSize} bytes)`);
 
       // Read chunk from file stream (not entire file)
       const fileStream = fs.createReadStream(filePath, { start, end: end - 1 });
@@ -140,7 +150,6 @@ async function uploadFile(filePath, serverUrl, folderName, relativePath, onProgr
       }
     }
 
-    console.log(`✅ ${fileName} uploaded (${totalChunks} chunks)`);
 
   } catch (error) {
     throw new Error(`Failed to upload ${path.basename(filePath)}: ${error.message}`);

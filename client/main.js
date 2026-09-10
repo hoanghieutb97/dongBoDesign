@@ -44,7 +44,16 @@ ipcMain.handle('select-folder', async () => {
 });
 
 ipcMain.handle('compress-upload', async (event, { folderPath, serverUrl }) => {
-  return compressAndUploadHandler(mainWindow, folderPath, serverUrl);
+  try {
+    return await compressAndUploadHandler(mainWindow, folderPath, serverUrl);
+  } catch (error) {
+    // Send error to renderer
+    mainWindow.webContents.send('upload-error', {
+      message: error.message,
+      code: error.code
+    });
+    throw error;
+  }
 });
 
 app.on('ready', createWindow);

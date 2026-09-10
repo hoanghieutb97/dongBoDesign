@@ -80,6 +80,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  window.api.onError((error) => {
+    showStatus(`❌ Lỗi: ${error.message}`, 'error');
+  });
+
   function updateProgress(percent) {
     progressFill.style.width = percent + '%';
     progressPercent.textContent = Math.round(percent) + '%';

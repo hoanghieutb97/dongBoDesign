@@ -9,5 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   },
   onProgress: (callback) => {
     ipcRenderer.on('progress', (event, data) => callback(data));
+  },
+  onError: (callback) => {
+    ipcRenderer.on('upload-error', (event, data) => callback(data));
   }
 });

@@ -9,7 +9,6 @@
     "dev": "electron . --inspect=5858"
   },
   "dependencies": {
-    "electron-squirrel-startup": "^1.1.0",
     "axios": "^1.6.0",
     "ws": "^8.14.2"
   },

@@ -80,7 +80,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     const folderPath = path.join(DESKTOP_IN, folderName);
     const fileDir = relativePath && relativePath.trim()
-      ? path.join(folderPath, relativePath)
+      ? path.join(folderPath, relativePath.replace(/\//g, path.sep))
       : folderPath;
 
     // Create directory if doesn't exist

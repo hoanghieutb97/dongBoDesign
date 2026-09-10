@@ -29,8 +29,14 @@ async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
       if (relativePath === '.') {
         relativePath = '';
       }
+      // Normalize path separator to forward slash for consistency
+      relativePath = relativePath.replace(/\\/g, '/');
       const fileName = path.basename(filePath);
       const fileSize = fs.statSync(filePath).size;
+
+      console.log(`📤 [${i + 1}/${files.length}] File: ${filePath}`);
+      console.log(`   relativePath: "${relativePath}"`);
+      console.log(`   fileName: "${fileName}"`);
 
       mainWindow.webContents.send('progress', {
         type: 'upload',
@@ -79,6 +85,7 @@ function getAllFiles(dir) {
     }
   });
 
+  console.log('📁 Scanned files:', files);
   return files;
 }
 

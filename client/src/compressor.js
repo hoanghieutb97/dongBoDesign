@@ -1,6 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const FormData = require('form-data');
 
 const CHUNK_SIZE = 5 * 1024 * 1024;
 
@@ -84,14 +85,13 @@ function getAllFiles(dir) {
 async function uploadFile(filePath, serverUrl, folderName, relativePath) {
   try {
     const fileName = path.basename(filePath);
-    const fileBuffer = fs.readFileSync(filePath);
-
     const uploadFileName = `${folderName}||${relativePath}||${fileName}`;
 
-    const formData = new FormData();
-    formData.append('file', new Blob([fileBuffer]), uploadFileName);
+    const form = new FormData();
+    form.append('file', fs.createReadStream(filePath), uploadFileName);
 
-    await axios.post(`${serverUrl}/api/upload`, formData, {
+    await axios.post(`${serverUrl}/api/upload`, form, {
+      headers: form.getHeaders(),
       timeout: 60000
     });
 

@@ -1,0 +1,4 @@
+cd client
+npm run build:win
+
+đầu ra ở client => dist

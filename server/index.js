@@ -15,7 +15,7 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 8888;
-const DESKTOP_IN = path.join(os.homedir(), 'Desktop', 'in');
+const DESKTOP_IN = 'D:\\in';
 
 app.use(cors());
 app.use(express.json());
@@ -162,6 +162,61 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 app.get('/api/status', (req, res) => {
   res.json({ server: 'running', uploadPath: DESKTOP_IN });
 });
+
+// Client reports upload complete
+app.post('/api/upload-complete', async (req, res) => {
+  try {
+    const imageThumbPath = path.join(DESKTOP_IN, 'imageThumb');
+
+    if (fs.existsSync(imageThumbPath)) {
+      // Copy imageThumb to network
+      await copyFolderRecursive(imageThumbPath, '\\\\192.168.1.240\\imageThumb');
+      res.json({
+        success: true,
+        message: 'Upload complete. imageThumb synced to network',
+        imagePath: imageThumbPath
+      });
+    } else {
+      res.json({
+        success: true,
+        message: 'Upload complete. No imageThumb folder found'
+      });
+    }
+
+  } catch (error) {
+    console.error('Upload complete error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Copy folder recursively
+function copyFolderRecursive(src, dest) {
+  return new Promise((resolve, reject) => {
+    try {
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+      }
+
+      const items = fs.readdirSync(src);
+
+      items.forEach(item => {
+        const srcPath = path.join(src, item);
+        const destPath = path.join(dest, item);
+        const stat = fs.statSync(srcPath);
+
+        if (stat.isDirectory()) {
+          copyFolderRecursive(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      });
+
+      resolve();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 server.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);

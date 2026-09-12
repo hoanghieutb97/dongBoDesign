@@ -67,6 +67,15 @@ async function compressAndUploadHandler(mainWindow, folderPath, serverUrl) {
       totalFiles: files.length
     });
 
+    // Notify server upload is complete (scan imageThumb + sync)
+    try {
+      await axios.post(`${serverUrl}/api/upload-complete`, {}, {
+        timeout: 120000
+      });
+    } catch (error) {
+      console.error('Upload complete notification error:', error.message);
+    }
+
     return {
       success: true,
       folder: folderName,
